@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 ARG PYTHON_VERSION=3.12-slim
 ARG PYTHON_SHA=sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
 
@@ -21,20 +23,23 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM python:${PYTHON_VERSION}@${PYTHON_SHA}
 
-LABEL version="1.0.0" \
-      author="Ibrahima FOFANA" \
-      description="Backend API de la plateforme d'échange en Côte d'Ivoire"
+LABEL org.opencontainers.image.version="1.0.0" \
+      org.opencontainers.image.authors="Ibrahima FOFANA" \
+      org.opencontainers.image.description="Backend API de la plateforme d'échange en Côte d'Ivoire" \
+      org.opencontainers.image.source="https://gitlab.com/personnel4344847/agoraci"
 
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 RUN groupadd --system --gid 999 nonroot \
   && useradd --system --gid 999 --uid 999 --create-home nonroot
 
 COPY --from=builder --chown=nonroot:nonroot /app/.venv /app/.venv
 
-COPY --chown=nonroot:nonroot backend/ ./backend
+COPY --chown=nonroot:nonroot backend/ .
 
 ENV PATH="/app/.venv/bin:$PATH"
 
@@ -42,6 +47,9 @@ ENTRYPOINT []
 
 USER nonroot
 
-EXPOSE 8080
+EXPOSE 8000
 
-CMD ["fastapi", "run", "/app/backend/main.py", "--port", "8080", "--host", "0.0.0.0"]
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -fsS http://localhost:8000/health || exit 1
+
+CMD ["sh", "-c", "alembic upgrade head && uvicorn agoraci.main:app --host 0.0.0.0 --port 8000"]
