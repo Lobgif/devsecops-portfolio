@@ -1,0 +1,71 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-slate-50 text-agora-ink antialiased;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  /* Champs de formulaire — style global cohérent et moderne */
+  input:not([type='checkbox']):not([type='radio']),
+  textarea,
+  select {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-agora-ink
+           shadow-sm transition placeholder:text-slate-400
+           focus:border-agora-green focus:outline-none focus:ring-2 focus:ring-agora-green/25;
+  }
+  ::selection {
+    @apply bg-agora-green/15;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-agora-orange px-5 py-2.5
+           text-sm font-semibold text-white shadow-sm transition
+           hover:bg-agora-orange-dark hover:shadow-md active:scale-[.98]
+           focus:outline-none focus:ring-2 focus:ring-agora-orange/40
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-slate-600
+           transition hover:bg-slate-100 hover:text-agora-ink focus:outline-none
+           disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent;
+  }
+  .btn-outline {
+    @apply inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2
+           text-sm font-medium text-agora-ink transition hover:border-agora-green hover:text-agora-green
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .card {
+    @apply rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+}
+
+/* Transition de page fluide */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}

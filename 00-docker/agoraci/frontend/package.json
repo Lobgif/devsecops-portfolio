@@ -1,0 +1,31 @@
+{
+  "name": "agoraci-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev --host 0.0.0.0",
+    "build": "nuxt build",
+    "generate": "nuxt generate",
+    "preview": "node .output/server/index.mjs",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@pinia/nuxt": "^0.7.0",
+    "@primevue/themes": "^4.2.0",
+    "@sentry/browser": "^10.74.0",
+    "nuxt": "^3.14.0",
+    "pinia": "^2.2.0",
+    "primeicons": "^7.0.0",
+    "primevue": "^4.2.0",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@nuxtjs/i18n": "^9.1.0",
+    "@nuxtjs/robots": "^5.0.0",
+    "@nuxtjs/sitemap": "^7.0.0",
+    "@nuxtjs/tailwindcss": "^6.12.0",
+    "@primevue/nuxt-module": "^4.2.0",
+    "nuxt-security": "^2.1.0"
+  }
+}

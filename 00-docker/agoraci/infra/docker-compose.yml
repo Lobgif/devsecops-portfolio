@@ -1,0 +1,168 @@
+# ============================================================
+# Jamakan — Orchestration LOCALE (développement)
+# Lancer : docker compose up --build
+# Accès   : http://localhost (frontend) · http://localhost:8080 (Traefik)
+# ============================================================
+
+services:
+  # ---------------- Reverse proxy ----------------
+  gateway:
+    image: traefik:v3
+    command: --configFile=/etc/traefik/traefik.yml
+    environment:
+      # Fixe la version d'API Docker (compatibilité avec un démon récent)
+      DOCKER_API_VERSION: "1.44"
+    ports:
+      - "${AGORA_HTTP_PORT:-48080}:80"
+      - "${AGORA_TRAEFIK_PORT:-48081}:8080"   # dashboard (local uniquement)
+    volumes:
+      - ./infra/traefik/traefik.local.yml:/etc/traefik/traefik.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [public]
+
+  # ---------------- Infrastructure ----------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [internal]
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [internal]
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    ports:
+      - "${AGORA_RABBITMQ_PORT:-48082}:15672"   # console de gestion
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    healthcheck:
+      # check_port_connectivity garantit que le port AMQP 5672 accepte réellement
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks: [internal]
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "${AGORA_MINIO_PORT:-48083}:9001"     # console MinIO
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks: [internal, public]
+    labels:
+      # Sert les fichiers publics (avatars/images) sous /media via Traefik
+      - traefik.enable=true
+      - traefik.http.routers.media.rule=PathPrefix(`/media`)
+      - traefik.http.routers.media.entrypoints=web
+      - traefik.http.routers.media.priority=20
+      - traefik.http.services.media.loadbalancer.server.port=9000
+
+  # ---------------- Backend (image unique : toutes les API) ----------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file: .env
+    restart: unless-stopped
+    # Dossier d'import en masse : déposer les fichiers de loi dans ./data/imports (sur l'hôte)
+    volumes:
+      - ./data/imports:/imports
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    networks: [public, internal]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.backend.rule=PathPrefix(`/api`) || PathPrefix(`/ws`)
+      - traefik.http.routers.backend.entrypoints=web
+      - traefik.http.services.backend.loadbalancer.server.port=8000
+
+  # ---------------- Frontend Nuxt 3 (dev / hot-reload) ----------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    environment:
+      NUXT_PUBLIC_API_BASE: /api
+      NUXT_API_INTERNAL: http://backend:8000
+      NUXT_PUBLIC_SITE_URL: "http://localhost:${AGORA_HTTP_PORT:-48080}"
+      NUXT_PUBLIC_SITE_NAME: Jamakan
+      NUXT_PUBLIC_GOOGLE_ENABLED: "${NUXT_PUBLIC_GOOGLE_ENABLED:-false}"
+      NUXT_PUBLIC_ADMIN_PATH: "${NUXT_PUBLIC_ADMIN_PATH:-admin}"
+      NUXT_PUBLIC_TURNSTILE_SITE_KEY: "${NUXT_PUBLIC_TURNSTILE_SITE_KEY:-}"
+    depends_on:
+      backend: { condition: service_started }
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.nuxt        # caches gérés par le conteneur (évite les désyncs MIME)
+      - /app/.output
+    restart: unless-stopped
+    healthcheck:
+      # 127.0.0.1 (pas localhost) : busybox wget ne bascule pas IPv6→IPv4
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    networks: [public]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.frontend.rule=PathPrefix(`/`)
+      - traefik.http.routers.frontend.entrypoints=web
+      - traefik.http.routers.frontend.priority=1
+      - traefik.http.services.frontend.loadbalancer.server.port=3000
+
+networks:
+  public:
+    name: agoraci_public
+  internal:
+    name: agoraci_internal
+
+volumes:
+  pgdata:
+  miniodata:
+  rabbitmqdata:
