@@ -1,6 +1,0 @@
-Mais c'est bien que tu es commencé le developpement mais on a pas encore fini le choix des technologies comparaison entre graphql vs http rest vs grcp  ? 2) il y a des fonctionnalités qui manque et autres que ça soit le seo et autre les sitemap, feed.xml et autres ? le design doit être professionnel et moderne et très esthetique et on a brevo aussi pour les notifications comme le smtp de brevo est là on va passer par la clé API  de brevo (j'espère que tu connais les modes de connexion de brevo)
-
-
-
-mais les éléments de ensure_defaults on ne peut mettre dans l'interface d'administration ?tout sauf les tests: Restent non traités (tu ne les as pas sélectionnés) : édition/suppression de ses propres posts, upload d'avatars/images (MinIO), @mentions cliquables, i18n anglais, pagination, préférences de notification, groupes privés, tests automatisés. Veux-tu que j'en prenne d'autres maintenant ? oui oui ) un import par fichiers : tu déposes des .txt (un par code) dans l'admin → ingestion automatique ; et c) un bouton « supprimer tous les documents (démo) » pour nettoyer en un clic.
-Mais quand je vais sur /admin ça ne passe pas s'affiche et ça disparait
