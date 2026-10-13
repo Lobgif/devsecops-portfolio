@@ -1,0 +1,25 @@
+stages:
+  - build
+
+build-image:
+  stage: build
+  image:
+    name: ghcr.io/osscontainertools/kaniko:v1.28.1-debug@sha256:75e83052c3a0f4dd80285fdac0f5fceda6192c4404296539b8be0c5ec9b8d359
+    entrypoint: [""]
+
+  before_script:
+    # Créer config.json pour authentification registry
+    - mkdir -p /kaniko/.docker
+    - echo "{\"auths\":{\"${CI_REGISTRY}\":{\"auth\":\"$(printf "%s:%s" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}" | base64 | tr -d '\n')\"}}}" > /kaniko/.docker/config.json
+
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
+      --destination "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}"
+      --cache=true
+      --cache-repo="${CI_REGISTRY_IMAGE}/cache"
+
+  only:
+    - main
+    - tags
