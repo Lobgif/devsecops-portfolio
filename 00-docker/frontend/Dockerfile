@@ -5,10 +5,11 @@ ARG NODE_SHA=sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2
 
 FROM node:${NODE_VERSION}-slim AS deps
 WORKDIR /app
+
 RUN --mount=type=cache,target=/root/.npm \
-    --mount=type=bind,source=frontend/package-lock.json,target=package-lock.json \
     --mount=type=bind,source=frontend/package.json,target=package.json \
-    npm ci --no-audit --no-fund --loglevel=error
+    npm install -g npm@12 \
+ && npm install --no-audit --no-fund --ignore-scripts --no-save --loglevel=error
 
 FROM node:${NODE_VERSION}-slim AS build
 WORKDIR /app
