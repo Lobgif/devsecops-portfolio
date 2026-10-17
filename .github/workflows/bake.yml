@@ -1,4 +1,35 @@
-name: bake.yml
+name: Build Images
+
 on:
+  push:
+    branches: [main]
+  pull_request:
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c  # v4.2.0
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c  # v4.5.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        run: |
+          docker buildx bake \
+            --set '*.REGISTRY=ghcr.io/${{ github.repository_owner }}' \
+            --set '*.TAG=${{ github.ref_name }}' \
+            --set '*.GIT_SHA=${{ github.sha }}' \
+            --set '*.PLATFORMS=linux/amd64,linux/arm64'
