@@ -17,13 +17,14 @@ group "default" {
 target "base" {
   context        = "."
   platforms      = ["linux/amd64", "linux/arm64"]
-  output = ["type=registry"]
+  # output = ["type=registry"]
+  output = ["type=docker"]
   attest = [
     "type=provenance,mode=max",
     "type=sbom"
   ]
-  cache-from = ["type=registry,ref=${REGISTRY}/app:buildcache:${TAG}"]
-  cache-to = ["type=registry,ref=${REGISTRY}/app:buildcache:${TAG},mode=max"]
+  # cache-from = ["type=registry,ref=${REGISTRY}/app:buildcache:${TAG}"]
+  # cache-to = ["type=registry,ref=${REGISTRY}/app:buildcache:${TAG},mode=max"]
   labels = {
     "maintainer" = "devsecops@gmail.com"
     "project"    = "app"
