@@ -1,6 +1,21 @@
 name: Jamakan
 
 services:
+  migrate:
+    image: ghcr.io/lobgif/backend/app:dev@sha256:0fa09d39561404b743bac0c2ecf1f5af7c0c332b26d57cbe43f5ad8cc428d92d
+    command: ["sh", "-c", "alembic upgrade head"]
+    deploy:
+      mode: replicated-job
+      restart_policy:
+        condition: none
+    environment:
+      POSTGRES_HOST: db
+    secrets:
+      - postgres_user
+      - postgres_password
+      - postgres_db
+    networks: [internal]
+
   api:
     image: ghcr.io/lobgif/backend/app:dev@sha256:0fa09d39561404b743bac0c2ecf1f5af7c0c332b26d57cbe43f5ad8cc428d92d
     ports:
@@ -15,9 +30,6 @@ services:
       - rabbitmq_password
       - minio_root_user
       - minio_root_password
-    pre_start:
-      - command: ["sh", "-c", "alembic upgrade head"]
-        per_replica: false
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
