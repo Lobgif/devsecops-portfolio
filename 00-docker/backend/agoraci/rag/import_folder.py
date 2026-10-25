@@ -2,7 +2,7 @@
 
 Dépose tes fichiers (.pdf / .docx / .txt) dans le dossier monté, puis :
 
-    docker compose --project-directory . -f infra/docker-compose.yml \\
+    docker compose --project-directory . -f infra/compose.yaml \\
         exec backend python -m agoraci.rag.import_folder /imports
 
 Chaque fichier devient un document (titre = nom du fichier), découpé par article,

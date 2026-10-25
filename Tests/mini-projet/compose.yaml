@@ -1,0 +1,16 @@
+services:
+  frontend:
+    build:
+      context: frontend
+      args:
+        NODE_ENV: production
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    image: frontend/app:v1.0.0
+
+
+  backend:
+    build:
+      context: backend
+    image: backend/app:v1.0.0

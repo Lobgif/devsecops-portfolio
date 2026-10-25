@@ -1,0 +1,62 @@
+name: wordpress
+services:
+  wordpress:
+    image: wordpress@sha256:b2ceeaabb8fa90e12f32fdf5c2479f4cef4508255fb406bd19aa23b1ce59bc46  # WordPress 7.0
+    container_name: wordpress
+    ports:
+        - "8089:80"
+    environment:
+      WORDPRESS_DB_HOST: mysql
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD_FILE: /run/secrets/WORDPRESS_DB_PASSWORD
+      WORDPRESS_DB_NAME: wordpress
+    secrets:
+      - WORDPRESS_DB_PASSWORD
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b  # MySQL 8.0.46
+    container_name: mysql
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD_FILE: /run/secrets/MYSQL_PASSWORD
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/MYSQL_ROOT_PASSWORD
+    secrets:
+      - MYSQL_ROOT_PASSWORD
+      - MYSQL_PASSWORD
+    restart: unless-stopped
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+        test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+
+  web-nginx:
+    image: nginx:alpine@sha256:54f2a904c251d5a34adf545a72d32515a15e08418dae0266e23be2e18c66fefa  # nginx 1.31.2
+    ports:
+      - "8090-8099:80"
+    deploy:
+      replicas: 3
+    develop:
+      watch:
+        - action: sync
+          path: ./app
+          target: /usr/share/nginx/html
+
+
+volumes:
+    db_data:
+
+secrets:
+    WORDPRESS_DB_PASSWORD:
+        file: ./secrets/wordpress_db_password.txt
+    MYSQL_PASSWORD:
+        file: ./secrets/mysql_password.txt
+    MYSQL_ROOT_PASSWORD:
+        file: ./secrets/mysql_root_password.txt

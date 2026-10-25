@@ -1,0 +1,143 @@
+name: Jamakan
+
+services:
+  api:
+    image: ghcr.io/lobgif/backend/app:dev@sha256:0fa09d39561404b743bac0c2ecf1f5af7c0c332b26d57cbe43f5ad8cc428d92d
+    ports:
+      - "8000:8000"
+    environment:
+      POSTGRES_HOST: db
+    secrets:
+      - postgres_user
+      - postgres_password
+      - postgres_db
+      - rabbitmq_user
+      - rabbitmq_password
+      - minio_root_user
+      - minio_root_password
+    pre_start:
+      - command: ["sh", "-c", "alembic upgrade head"]
+        per_replica: false
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 25s
+      retries: 5
+    deploy:
+      replicas: 3
+      placement:
+        constraints:
+          - node.role == worker
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+    networks: [public, internal]
+
+  db:
+    image: pgvector/pgvector:0.8.7-pg18-trixie@sha256:9d9c930220cb9bf2f956d10a8f909cf9973d9672ca0278aef2c1e6facccad2e0
+    environment:
+      POSTGRES_USER_FILE: /run/secrets/postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_DB_FILE: /run/secrets/postgres_db
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    secrets:
+      - postgres_user
+      - postgres_password
+      - postgres_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$(cat /run/secrets/postgres_user)\" -d \"$$(cat /run/secrets/postgres_db)\""]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+      retries: 5
+    networks: [internal]
+
+  redis:
+    image: redis:8.10.2-alpine@sha256:0bf6577d7774e592b29d093e3ac9390eb91e13d72c21e506afce736de5e0eeb0
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [internal]
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine@sha256:0452ee3fd3b9a74160b251e693338616b464f22df4d4ba43304c101bebdca292
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        export RABBITMQ_DEFAULT_USER="$$(cat /run/secrets/rabbitmq_user)"
+        export RABBITMQ_DEFAULT_PASS="$$(cat /run/secrets/rabbitmq_password)"
+        exec docker-entrypoint.sh rabbitmq-server
+    secrets:
+      - rabbitmq_user
+      - rabbitmq_password
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks: [internal]
+
+  minio:
+    image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z@sha256:635197cb9f36d01bee221d34d1c7d7960f6a95c48b0b6c01d99cd13bdae51a46
+    command: server /data
+    environment:
+      MINIO_ROOT_USER_FILE: /run/secrets/minio_root_user
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_root_password
+    secrets:
+      - minio_root_user
+      - minio_root_password
+    networks: [internal]
+
+  web:
+    image: hcr.io/lobgif/frontend/app:dev@sha256:40e6595f8851121275ff5a39aa1419e058cea55318ad0315782bcee3aa4f7488
+    ports:
+      - "3000:3000"
+    environment:
+      NUXT_API_INTERNAL: http://api:8000
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+    networks: [public]
+
+volumes:
+  pgdata:
+
+networks:
+  public:
+    driver: bridge
+    name: jamakan_public
+  internal:
+    driver: bridge
+    name: jamakan_internal
+
+secrets:
+  postgres_user:
+    external: true
+  postgres_password:
+    external: true
+  postgres_db:
+    external: true
+  rabbitmq_user:
+    external: true
+  rabbitmq_password:
+    external: true
+  minio_root_user:
+    external: true
+  minio_root_password:
+    external: true

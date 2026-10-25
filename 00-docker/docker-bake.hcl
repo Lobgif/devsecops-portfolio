@@ -3,7 +3,7 @@ variable "TAG" {
 }
 
 variable "REGISTRY" {
-  default = "ghcr.io/lahigic"
+  default = "ghcr.io/lobgif"
 }
 
 variable "GIT_SHA" { default = "" }
@@ -17,16 +17,16 @@ group "default" {
 target "base" {
   context        = "."
   platforms      = ["linux/amd64", "linux/arm64"]
-  # output = ["type=registry"]
-  output = ["type=docker"]
+  output = ["type=registry"]
+  # output = ["type=docker"]
   attest = [
     "type=provenance,mode=max",
     "type=sbom"
   ]
-  # cache-from = ["type=registry,ref=${REGISTRY}/app:buildcache:${TAG}"]
-  # cache-to = ["type=registry,ref=${REGISTRY}/app:buildcache:${TAG},mode=max"]
+  cache-from = ["type=registry,ref=${REGISTRY}/app:buildcache-${TAG}"]
+  cache-to = ["type=registry,ref=${REGISTRY}/app:buildcache-${TAG},mode=max"]
   labels = {
-    "maintainer" = "devsecops@gmail.com"
+    "maintainer" = "lahigic@gmail.com"
     "project"    = "app"
     "org.opencontainers.image.source" = "https://gitlab.com/personnel4344847/devsecops-portfolio.git"
     "org.opencontainers.image.description" = "Forum citoyen ivoirien"
