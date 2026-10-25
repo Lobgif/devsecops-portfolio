@@ -17,7 +17,10 @@ services:
   api:
     image: ghcr.io/lobgif/backend/app:dev@sha256:0fa09d39561404b743bac0c2ecf1f5af7c0c332b26d57cbe43f5ad8cc428d92d
     ports:
-      - "8000:8000"
+      - target: 8000
+        published: 8000
+        protocol: tcp
+        mode: ingress
     environment:
       POSTGRES_HOST: db
     secrets:
@@ -111,7 +114,10 @@ services:
   web:
     image: hcr.io/lobgif/frontend/app:dev@sha256:40e6595f8851121275ff5a39aa1419e058cea55318ad0315782bcee3aa4f7488
     ports:
-      - "3000:3000"
+      - target: 3000
+        published: 3000
+        protocol: tcp
+        mode: ingress
     environment:
       NUXT_API_INTERNAL: http://api:8000
     deploy:
