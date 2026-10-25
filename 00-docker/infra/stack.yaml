@@ -112,7 +112,7 @@ services:
     networks: [internal]
 
   web:
-    image: hcr.io/lobgif/frontend/app:dev@sha256:40e6595f8851121275ff5a39aa1419e058cea55318ad0315782bcee3aa4f7488
+    image: ghcr.io/lobgif/frontend/app:dev@sha256:40e6595f8851121275ff5a39aa1419e058cea55318ad0315782bcee3aa4f7488
     ports:
       - target: 3000
         published: 3000
