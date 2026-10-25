@@ -64,7 +64,9 @@ services:
         placement:
             constraints:
             - node.role == manager
-            - node.labels.zone == eu
+            - node.labels.zone == europe
+            preferences:
+              - spread: node.labels.zone
     volumes:
       - pgdata:/var/lib/postgresql
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
