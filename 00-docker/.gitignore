@@ -32,3 +32,6 @@ volumes/
 .vscode/
 .DS_Store
 Thumbs.db
+secrets/*.txt
+infra/secrets/*.txt
+!secrets/*.txt.example
