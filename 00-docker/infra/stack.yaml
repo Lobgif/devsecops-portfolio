@@ -136,10 +136,10 @@ volumes:
 
 networks:
   public:
-    driver: bridge
+    driver: overlay
     name: jamakan_public
   internal:
-    driver: bridge
+    driver: overlay
     name: jamakan_internal
 
 secrets:
