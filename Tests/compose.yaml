@@ -1,0 +1,71 @@
+services:
+#  web:
+#    image: nginx
+#    read_only: true
+#    tmpfs:
+#      - /tmp:size=10m
+#      - /var/cache/nginx
+#      - /var/run
+#    security_opt:
+#        - no-new-privileges:true
+  socketproxy:
+    image: tecnativa/docker-socket-proxy:v0.4.2@sha256:1f3a6f303320723d199d2316a3e82b2e2685d86c275d5e3deeaf182573b47476
+    userns_mode: host
+    environment:
+      - CONTAINERS=1
+      - INFO=1
+      - VERSION=1
+      - EVENTS=1
+      - IMAGES=1
+      - NETWORKS=1
+      - PING=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [proxynet]
+    restart: unless-stopped
+
+  dozzle:
+    image: amir20/dozzle:v10.6.9@sha256:6f4644814cce31e11fe80f2610515df6a5a2e40120b4087c298a72df8d65866b
+    container_name: dozzle
+    command: [ "--no-analytics", "--filter", "label=lab=dozzle" ]
+    environment:
+      - DOCKER_HOST=tcp://socketproxy:2375
+    volumes:
+      - dozzle_data:/data
+    ports:
+      - "8091:8080"
+    networks: [proxynet]
+    depends_on: [socketproxy]
+
+  api:
+    image: nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+    container_name: lab-api
+    labels:
+      lab: dozzle
+    ports:
+      - "8092:80"
+    networks: [proxynet]
+    depends_on: [dozzle]
+
+
+  worker:
+    image: alpine:3.21@sha256:48b0309ca019d89d40f670aa1bc06e426dc0931948452e8491e3d65087abc07d
+    container_name: lab-worker
+    labels:
+      lab: dozzle
+    command: >
+      sh -c "i=0; while true; do
+        i=$$((i+1));
+        if [ $$((i % 5)) -eq 0 ]; then echo \"level=error msg=\\\"paiement refuse\\\" order=$$i\";
+        else echo \"level=info msg=\\\"commande traitee\\\" order=$$i\"; fi;
+        sleep 2; done"
+    networks: [proxynet]
+    depends_on: [dozzle]
+
+volumes:
+  dozzle_data:
+
+networks:
+    proxynet:
+        driver: bridge
+        name: proxynet
