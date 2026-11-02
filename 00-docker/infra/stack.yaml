@@ -6,6 +6,13 @@ services:
       mode: replicated-job
       restart_policy:
         condition: none
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+          pids: 100
+        reservations:
+          memory: 128M
     environment:
       POSTGRES_HOST: db
     secrets:
@@ -16,6 +23,9 @@ services:
 
   api:
     image: ghcr.io/lobgif/backend/app:dev@sha256:0fa09d39561404b743bac0c2ecf1f5af7c0c332b26d57cbe43f5ad8cc428d92d
+    read_only: true
+    tmpfs:
+      - /tmp:size=50m
     ports:
       - target: 8000
         published: 8000
@@ -42,6 +52,13 @@ services:
       placement:
         constraints:
           - node.role == worker
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+          pids: 200
+        reservations:
+          memory: 256M
       update_config:
         parallelism: 1
         delay: 10s
@@ -67,6 +84,13 @@ services:
             - node.labels.zone == europe
             preferences:
               - spread: node.labels.zone
+        resources:
+          limits:
+            cpus: "1.0"
+            memory: 1G
+            pids: 300
+          reservations:
+            memory: 512M
     volumes:
       - pgdata:/var/lib/postgresql
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -88,6 +112,13 @@ services:
         placement:
             constraints:
             - node.role == manager
+        resources:
+          limits:
+            cpus: "0.50"
+            memory: 256M
+            pids: 100
+          reservations:
+            memory: 64M
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -101,6 +132,13 @@ services:
         placement:
             constraints:
             - node.role == manager
+        resources:
+          limits:
+            cpus: "0.50"
+            memory: 512M
+            pids: 300
+          reservations:
+            memory: 256M
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -124,6 +162,13 @@ services:
         placement:
             constraints:
             - node.role == manager
+        resources:
+          limits:
+            cpus: "0.50"
+            memory: 512M
+            pids: 200
+          reservations:
+            memory: 256M
     command: server /data
     environment:
       MINIO_ROOT_USER_FILE: /run/secrets/minio_root_user
@@ -135,6 +180,9 @@ services:
 
   web:
     image: ghcr.io/lobgif/frontend/app:dev@sha256:40e6595f8851121275ff5a39aa1419e058cea55318ad0315782bcee3aa4f7488
+    read_only: true
+    tmpfs:
+      - /tmp:size=50m
     ports:
       - target: 3000
         published: 3000
@@ -145,8 +193,15 @@ services:
     deploy:
       replicas: 3
       placement:
-          constraints:
+        constraints:
           - node.role == worker
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+          pids: 200
+        reservations:
+          memory: 256M
       update_config:
         parallelism: 1
         delay: 10s
@@ -166,9 +221,13 @@ networks:
   public:
     driver: overlay
     name: jamakan_public
+    driver_opts:
+      encrypted: "true"
   internal:
     driver: overlay
     name: jamakan_internal
+    driver_opts:
+      encrypted: "true"
 
 secrets:
   postgres_user:
