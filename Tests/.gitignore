@@ -1,0 +1,12 @@
+.npmrc
+
+cosign-linux-amd64
+cosign_checksums.txt
+
+docker-bench-security/
+
+resultats.json
+
+secrets.json
+*.pem
+*.key
