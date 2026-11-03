@@ -1,4 +1,38 @@
 services:
+  socketproxy:
+    image: tecnativa/docker-socket-proxy:v0.4.2@sha256:1f3a6f303320723d199d2316a3e82b2e2685d86c275d5e3deeaf182573b47476
+    userns_mode: host
+    environment:
+      - CONTAINERS=1
+      - INFO=1
+      - VERSION=1
+      - EVENTS=1
+      - IMAGES=1
+      - NETWORKS=1
+      - PING=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [ proxynet ]
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
+
+  dozzle:
+    image: amir20/dozzle:v10.6.9@sha256:6f4644814cce31e11fe80f2610515df6a5a2e40120b4087c298a72df8d65866b
+    container_name: dozzle
+    command: [ "--no-analytics", "--filter", "label=lab=dozzle" ]
+    environment:
+      - DOCKER_HOST=tcp://socketproxy:2375
+    volumes:
+      - dozzle_data:/data
+    ports:
+      - "8091:8080"
+    networks: [ proxynet ]
+
   migrate:
     image: ghcr.io/lobgif/backend/app:dev@sha256:0fa09d39561404b743bac0c2ecf1f5af7c0c332b26d57cbe43f5ad8cc428d92d
     command: ["sh", "-c", "alembic upgrade head"]
@@ -216,6 +250,7 @@ services:
 
 volumes:
   pgdata:
+  dozzle_data:
 
 networks:
   public:
@@ -228,6 +263,12 @@ networks:
     name: jamakan_internal
     driver_opts:
       encrypted: "true"
+  proxynet:
+    driver: overlay
+    driver_opts:
+      encrypted: "true"
+    name: proxynet
+    internal: true
 
 secrets:
   postgres_user:
