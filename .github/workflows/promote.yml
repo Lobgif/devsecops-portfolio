@@ -1,24 +1,36 @@
-name: Build and push Docker image
+# Promotion manuelle via workflow_dispatch
 on:
-  push:
-    branches: [main]
-    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      source_tag:
+        description: 'Tag à promouvoir'
+        required: true
+      target_env:
+        description: 'Environnement cible'
+        required: true
+        type: choice
+        options: [staging, prod]
+
+permissions: {}
+
 jobs:
-  - name: Docker meta
-    id: meta
-    uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
-    with:
-      images: ghcr.io/${{ github.repository }}
-      flavor: |
-        latest=false
-      tags: |
-        # Sur un push de tag Git v* seulement (modèle 2, voir plus bas) : tags semver
-        type=semver,pattern={{version}}
-        type=semver,pattern={{major}}.{{minor}}
-        # Sur tout push : SHA court (sha-abc1234)
-        type=sha
-        # Sur push sur main : branche et latest
-        type=ref,event=branch,enable=${{ github.ref == 'refs/heads/main' }}
-        type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-        # Sur PR → pr-123
-        type=ref,event=pr
+  promote:
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: write
+    steps:
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Promote image
+        env:
+          SOURCE_TAG: ${{ inputs.source_tag }}
+          TARGET_ENV: ${{ inputs.target_env }}
+          REPO: ${{ github.repository }}
+        run: |
+          skopeo copy --all --preserve-digests \
+            "docker://ghcr.io/${REPO}:${SOURCE_TAG}" \
+            "docker://ghcr.io/${REPO}:${TARGET_ENV}"
