@@ -1,0 +1,24 @@
+name: Build and push Docker image
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+jobs:
+  - name: Docker meta
+    id: meta
+    uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+    with:
+      images: ghcr.io/${{ github.repository }}
+      flavor: |
+        latest=false
+      tags: |
+        # Sur un push de tag Git v* seulement (modèle 2, voir plus bas) : tags semver
+        type=semver,pattern={{version}}
+        type=semver,pattern={{major}}.{{minor}}
+        # Sur tout push : SHA court (sha-abc1234)
+        type=sha
+        # Sur push sur main : branche et latest
+        type=ref,event=branch,enable=${{ github.ref == 'refs/heads/main' }}
+        type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+        # Sur PR → pr-123
+        type=ref,event=pr

@@ -28,7 +28,8 @@ sécurité native (Shift Left), la gouvernance et l'observabilité**.
 
 | # | Projet | Stack principale | Statut |
 |---|--------|------------------|--------|
-| 01 | [Bastion sécurisé & automatisé](01-bastion-ansible/) | Ansible, UFW, OpenSCAP, CIS | 🚧 en cours |
+| 00 | [Socle : Linux + Docker + Réseau + AWS](00-docker/) | Docker, Swarm, Buildx/Bake, Trivy, Cosign, AWS EC2 | 🚧 en cours |
+| 01 | [Bastion sécurisé & automatisé](01-bastion-ansible/) | Ansible, UFW, OpenSCAP, CIS | ⏳ à venir |
 | 02 | Pipeline CI/CD « Zero Vulnerability » | GitHub Actions / GitLab CI, Gitleaks, SonarQube, Trivy, Cosign | ⏳ à venir |
 | 03 | Hardening à l'échelle + tests | Ansible roles, Molecule, OpenSCAP | ⏳ à venir |
 | 04 | Kubernetes de poche + GitOps | K3s, Helm, Argo CD | ⏳ à venir |
