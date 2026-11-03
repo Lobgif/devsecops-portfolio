@@ -12,7 +12,19 @@ Légende statut : 🚧 en cours · ⏳ à venir · ✅ terminé
 **Budget :** ~10-15 €/mois (ex. Hetzner CX22/CX32, OVH, Scaleway). Cette VM est aussi
 ton **serveur de contrôle** pour la Phase 2.
 
-### Projet 01 — Bastion sécurisé & automatisé 🚧
+### Projet 00 — Socle : Linux + Docker + Réseau + AWS 🚧
+
+| | |
+|---|---|
+| **Objectif** | Maîtriser les **fondations** avant d'automatiser : Linux (users/permissions, capabilities, seccomp, cgroups, namespaces), Docker (images, build multi-stage/bake, Compose, Swarm, durcissement), Réseau (bridge/overlay, ports, sockets, routing mesh), AWS (EC2, VPC, Security Groups) |
+| **Stack** | Docker, Docker Swarm, Buildx/Bake, Trivy, Cosign, SOPS, docker-socket-proxy, AWS EC2 |
+| **Livrables** | Stack Swarm multi-services (`agoraci` : api/web/Postgres/Redis/RabbitMQ/MinIO) déployée sur un cluster **3 nœuds EC2** ; images épinglées par digest, **signées (cosign keyless)** ; secrets externes (`_FILE`) ; durcissement runtime (read-only, cap_drop, no-new-privileges, limites resources/pids) |
+| **Preuve** | **docker-bench-security avant/après** (score qui monte) ; image signée vérifiable ; secrets jamais gravés (scan Trivy) ; stack HA qui tient le redémarrage |
+| **Ce que le recruteur regarde** | Compréhension **profonde** des fondations conteneur/OS/réseau/cloud, pas juste « ça marche » |
+| **Prérequis** | WSL ou Linux, Docker, un compte AWS (free tier), Git |
+| **Journal** | Apprentissage détaillé consigné dans le journal `docs/DevSecOps.md` (dépôt DevSecOps) — code dans [`00-docker/`](../00-docker/) |
+
+### Projet 01 — Bastion sécurisé & automatisé ⏳
 
 | | |
 |---|---|
