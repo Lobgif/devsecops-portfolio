@@ -3,3 +3,10 @@ node_modules
 .output
 dist
 *.log
+*.key
+*.pem
+cosign.key
+cosign.pub
+sbom*.json
+*.spdx.json
+*.cdx.json

@@ -7,4 +7,11 @@
 **/.mypy_cache
 **/.ruff_cache
 **/*.md
+*.key
+*.pem
+cosign.key
+cosign.pub
+sbom*.json
+*.spdx.json
+*.cdx.json
 
