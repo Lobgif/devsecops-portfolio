@@ -20,6 +20,12 @@ COPY frontend/ ./
 RUN npm run build
 
 FROM node:${NODE_VERSION}-alpine@${NODE_SHA} AS runtime
+
+LABEL org.opencontainers.image.version="1.0.0" \
+      org.opencontainers.image.authors="Ibrahima FOFANA" \
+      org.opencontainers.image.description="Frontend agoraci (Nuxt)" \
+      org.opencontainers.image.source="https://github.com/Lobgif/devsecops-portfolio"
+
 WORKDIR /app
 ENV NODE_ENV=production \
     NITRO_PORT=3000 \
