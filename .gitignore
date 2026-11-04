@@ -8,6 +8,15 @@
 .env
 .env.*
 
+# Cosign (clé privée déjà couverte par *.key ; explicité)
+cosign.key
+cosign.pub
+
+# SBOM (générés en CI, non versionnés)
+sbom*.json
+*.spdx.json
+*.cdx.json
+
 # Terraform
 .terraform/
 *.tfstate
