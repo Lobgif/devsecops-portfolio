@@ -26,7 +26,7 @@ FROM python:${PYTHON_VERSION}@${PYTHON_SHA}
 LABEL org.opencontainers.image.version="1.0.0" \
       org.opencontainers.image.authors="Ibrahima FOFANA" \
       org.opencontainers.image.description="Backend API de la plateforme d'échange en Côte d'Ivoire" \
-      org.opencontainers.image.source="https://gitlab.com/personnel4344847/agoraci"
+      org.opencontainers.image.source="https://github.com/Lobgif/devsecops-portfolio"
 
 ENV PYTHONUNBUFFERED=1
 
