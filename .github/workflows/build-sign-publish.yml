@@ -3,6 +3,8 @@ name: Build, scan, sign, publish & promote
 on:
   push:
     branches: [dev]
+  pull_request:
+    branches: [dev]
   workflow_dispatch:
     inputs:
       source_tag:
@@ -19,7 +21,7 @@ permissions: {}
 
 jobs:
   image:
-    if: ${{ github.event_name == 'push' }}
+    if: ${{ github.event_name != 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -68,27 +70,35 @@ jobs:
             type=raw,value=dev
             type=sha
 
-      - name: Build multi-arch + push
+      - name: Build (multi-arch + push sur dev ; amd64 + load sur PR)
         id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: 00-docker
           file: 00-docker/${{ matrix.component }}/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
+          platforms: ${{ github.event_name == 'push' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+          push: ${{ github.event_name == 'push' }}
+          load: ${{ github.event_name == 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=ghcr.io/lobgif/cache:${{ matrix.component }}
-          cache-to: type=registry,ref=ghcr.io/lobgif/cache:${{ matrix.component }},mode=max
+          cache-to: ${{ github.event_name == 'push' && format('type=registry,ref=ghcr.io/lobgif/cache:{0},mode=max', matrix.component) || '' }}
+
+      - name: Valider la PR (scan de l'image locale)
+        if: ${{ github.event_name == 'pull_request' }}
+        run: grype "${{ env.IMAGE }}:dev" --fail-on critical
 
       - name: Récupérer le digest (index multi-arch) avec crane
+        if: ${{ github.event_name == 'push' }}
         id: digest
         run: echo "digest=$(crane digest ${{ env.IMAGE }}:dev)" >> "$GITHUB_OUTPUT"
 
       - name: Scan CVE bloquant (Grype, par digest)
+        if: ${{ github.event_name == 'push' }}
         run: grype "${{ env.IMAGE }}@${{ steps.digest.outputs.digest }}" --fail-on critical
 
       - name: Attestation de provenance SLSA
+        if: ${{ github.event_name == 'push' }}
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE }}
@@ -96,11 +106,13 @@ jobs:
           push-to-registry: true
 
       - name: Installer cosign
+        if: ${{ github.event_name == 'push' }}
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
         with:
           cosign-release: v3.1.3
 
       - name: Signer puis vérifier par digest
+        if: ${{ github.event_name == 'push' }}
         env:
           IMAGE_REF: ${{ env.IMAGE }}@${{ steps.digest.outputs.digest }}
           IDENTITE: ${{ github.server_url }}/${{ github.workflow_ref }}
@@ -111,6 +123,7 @@ jobs:
             --certificate-oidc-issuer https://token.actions.githubusercontent.com
 
       - name: SBOM CycloneDX attesté par digest
+        if: ${{ github.event_name == 'push' }}
         env:
           IMAGE_REF: ${{ env.IMAGE }}@${{ steps.digest.outputs.digest }}
         run: |
@@ -118,6 +131,7 @@ jobs:
           cosign attest --yes --type cyclonedx --predicate "sbom.${{ matrix.component }}.cdx.json" "${IMAGE_REF}"
 
       - name: Publier le SBOM comme artefact
+        if: ${{ github.event_name == 'push' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sbom-${{ matrix.component }}
