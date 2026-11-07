@@ -37,14 +37,14 @@ target "frontend" {
   inherits   = ["base"]
   dockerfile = "frontend/Dockerfile"
   tags       = ["${REGISTRY}/frontend/app:${TAG}"]
-  cache-from = ["type=registry,ref=${REGISTRY}/cache:frontend-${TAG}"]
-  cache-to   = ["type=registry,ref=${REGISTRY}/cache:frontend-${TAG},mode=max"]
+  cache-from = ["type=registry,ref=${REGISTRY}/cache:frontend"]
+  cache-to   = ["type=registry,ref=${REGISTRY}/cache:frontend,mode=max"]
 }
 
 target "backend" {
   inherits   = ["base"]
   dockerfile = "backend/Dockerfile"
   tags       = ["${REGISTRY}/backend/app:${TAG}"]
-  cache-from = ["type=registry,ref=${REGISTRY}/cache:backend-${TAG}"]
-  cache-to   = ["type=registry,ref=${REGISTRY}/cache:backend-${TAG},mode=max"]
+  cache-from = ["type=registry,ref=${REGISTRY}/cache:backend"]
+  cache-to   = ["type=registry,ref=${REGISTRY}/cache:backend,mode=max"]
 }
