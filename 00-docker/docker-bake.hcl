@@ -23,8 +23,6 @@ target "base" {
     "type=provenance,mode=max",
     "type=sbom"
   ]
-  cache-from = ["type=registry,ref=${REGISTRY}/app:buildcache-${TAG}"]
-  cache-to = ["type=registry,ref=${REGISTRY}/app:buildcache-${TAG},mode=max"]
   labels = {
     "maintainer" = "lahigic@gmail.com"
     "project"    = "app"
@@ -39,10 +37,14 @@ target "frontend" {
   inherits   = ["base"]
   dockerfile = "frontend/Dockerfile"
   tags       = ["${REGISTRY}/frontend/app:${TAG}"]
+  cache-from = ["type=registry,ref=${REGISTRY}/cache:frontend-${TAG}"]
+  cache-to   = ["type=registry,ref=${REGISTRY}/cache:frontend-${TAG},mode=max"]
 }
 
 target "backend" {
   inherits   = ["base"]
   dockerfile = "backend/Dockerfile"
   tags       = ["${REGISTRY}/backend/app:${TAG}"]
+  cache-from = ["type=registry,ref=${REGISTRY}/cache:backend-${TAG}"]
+  cache-to   = ["type=registry,ref=${REGISTRY}/cache:backend-${TAG},mode=max"]
 }
