@@ -1,0 +1,232 @@
+name: Build, scan, sign, publish & promote
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+  workflow_dispatch:
+    inputs:
+      source_tag:
+        description: 'Tag source à promouvoir'
+        required: true
+        default: dev
+      target_env:
+        description: 'Environnement cible'
+        required: true
+        type: choice
+        options: [qa, staging, prod]
+
+permissions: {}
+
+jobs:
+  # PR : build amd64 + scan, EN LECTURE SEULE (aucune publication possible)
+  validate:
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [backend, frontend]
+    env:
+      IMAGE: ghcr.io/lobgif/${{ matrix.component }}/app
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Se connecter à ghcr.io (lecture du cache)
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Préparer Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Installer grype (épinglé)
+        run: curl -sSfL https://raw.githubusercontent.com/anchore/grype/v0.121.2/install.sh | sh -s -- -b /usr/local/bin v0.121.2
+
+      - name: Build amd64 (sans publier)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: 00-docker
+          file: 00-docker/${{ matrix.component }}/Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: ${{ env.IMAGE }}:pr
+          cache-from: type=registry,ref=ghcr.io/lobgif/cache:${{ matrix.component }}
+
+      - name: Scan CVE bloquant (Grype)
+        run: grype "${{ env.IMAGE }}:pr" --fail-on critical
+
+  # push sur dev : build multi-arch, scan, sign, SBOM, provenance, puis tag dev
+  build:
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [backend, frontend]
+    env:
+      IMAGE: ghcr.io/lobgif/${{ matrix.component }}/app
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Se connecter à ghcr.io
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Préparer QEMU (multi-arch)
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+
+      - name: Préparer Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Installer grype et syft (épinglés)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/v0.121.2/install.sh | sh -s -- -b /usr/local/bin v0.121.2
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/v1.57.0/install.sh  | sh -s -- -b /usr/local/bin v1.57.0
+
+      - name: Calculer labels + tag sha
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=sha
+
+      - name: Build multi-arch + push (tag sha, PAS encore dev)
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: 00-docker
+          file: 00-docker/${{ matrix.component }}/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=ghcr.io/lobgif/cache:${{ matrix.component }}
+          cache-to: type=registry,ref=ghcr.io/lobgif/cache:${{ matrix.component }},mode=max
+
+      - name: Scan CVE bloquant par plateforme (Grype, par digest)
+        env:
+          REF: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+        run: |
+          for p in linux/amd64 linux/arm64; do
+            echo "::group::grype $p"
+            grype "${REF}" --platform "$p" --fail-on critical
+            echo "::endgroup::"
+          done
+
+      - name: Attestation de provenance SLSA
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Installer cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.3
+
+      - name: Signer puis vérifier par digest
+        env:
+          REF: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+          IDENTITE: ${{ github.server_url }}/${{ github.workflow_ref }}
+        run: |
+          cosign sign --yes "${REF}"
+          cosign verify "${REF}" \
+            --certificate-identity "${IDENTITE}" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+      - name: SBOM CycloneDX par plateforme, attesté par digest
+        env:
+          REF: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+        run: |
+          for p in linux/amd64 linux/arm64; do
+            arch="${p##*/}"
+            syft "${REF}" --platform "$p" -o cyclonedx-json > "sbom.${{ matrix.component }}.${arch}.cdx.json"
+            cosign attest --yes --type cyclonedx \
+              --predicate "sbom.${{ matrix.component }}.${arch}.cdx.json" "${REF}"
+          done
+
+      - name: Publier le tag dev (seulement après scan + signature OK)
+        run: |
+          docker buildx imagetools create \
+            -t "${{ env.IMAGE }}:dev" \
+            "${{ env.IMAGE }}@${{ steps.build.outputs.digest }}"
+
+      - name: Publier les SBOM comme artefacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sbom-${{ matrix.component }}
+          path: sbom.${{ matrix.component }}.*.cdx.json
+
+  # promotion manuelle : vérifie la signature AVANT de copier (par digest)
+  promote:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    strategy:
+      fail-fast: true
+      matrix:
+        component: [backend, frontend]
+    env:
+      IMAGE: ghcr.io/lobgif/${{ matrix.component }}/app
+    steps:
+      - name: Se connecter à ghcr.io
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Installer crane, cosign et skopeo
+        run: |
+          curl -sSL "https://github.com/google/go-containerregistry/releases/download/v0.20.2/go-containerregistry_Linux_x86_64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin crane
+          sudo apt-get update && sudo apt-get install -y skopeo
+
+      - name: Installer cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.3
+
+      - name: Résoudre le digest de la source
+        id: src
+        run: echo "digest=$(crane digest ${{ env.IMAGE }}:${{ inputs.source_tag }})" >> "$GITHUB_OUTPUT"
+
+      - name: Vérifier la signature AVANT promotion
+        env:
+          REF: ${{ env.IMAGE }}@${{ steps.src.outputs.digest }}
+        run: |
+          cosign verify "${REF}" \
+            --certificate-identity-regexp "^https://github.com/Lobgif/devsecops-portfolio/\.github/workflows/" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+      - name: Promouvoir (copie par digest, multi-arch)
+        env:
+          REF: ${{ env.IMAGE }}@${{ steps.src.outputs.digest }}
+          DST: ${{ env.IMAGE }}:${{ inputs.target_env }}
+        run: skopeo copy --all --preserve-digests "docker://${REF}" "docker://${DST}"
